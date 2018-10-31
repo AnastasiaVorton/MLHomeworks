@@ -12,10 +12,10 @@ import numpy.linalg as euclidean
 # distance_col, cluster_col - ids of columns keeping min distance and closest cluster id
 # returns cluster indices and distance between them
 def find_clusters_to_merge(clusters_matrix, distance_col, cluster_col):
-    dist = clusters_matrix[:, distance_col]
-    min_ind = np.argmin(dist)
-    min_dist = dist[min_ind]
-    cl_2 = clusters_matrix[min_ind][cluster_col]
+    dist = clusters_matrix[:, distance_col]  # interpreting distances as a list
+    min_ind = np.argmin(dist)  # finding index of a minimum distance
+    min_dist = dist[min_ind]  # finding minimum distance
+    cl_2 = int(clusters_matrix[min_ind][cluster_col])  # closest cluster number
     return min_ind, cl_2, min_dist
 
 
@@ -26,43 +26,89 @@ def find_clusters_to_merge(clusters_matrix, distance_col, cluster_col):
 # X_matrix - data + cluster membership column
 # distance_col, cluster_col - ids of columns keeping min distance and closest cluster id
 # distances_matrix - initial pairwise distances matrix, good implementation doesn't need it in this method
+# def single_link_merge(c1_index, c2_index, X_matrix, clusters_matrix, distance_col, cluster_col, distances_matrix):
+#     # step 1: assign new cluster membership to the second cluster
+#     points_in_c1 = []  # points that belong to a newly merged class
+#     for i in range(len(X_matrix)):
+#         row = X_matrix[i]
+#         if row[2] == c1_index:
+#             to_append = row[:2]
+#             points_in_c1.append((i, to_append))  # appending index of the data point to update its information in future
+#         if row[2] == c2_index:
+#             to_append = row[:2]
+#             points_in_c1.append((i, to_append))
+#             row[2] = c1_index
+#     # step 2: recalculate distances to all other clusters
+#     clusters = np.unique(X_matrix[:, 2])  # identifying all unique clusters
+#     dist_to_clusters = {}
+#     # calculate distances from each point of a target cluster to all other points in all other clusters
+#     for c in clusters:
+#         if c != c1_index:
+#             dist_to_points = []
+#             points_in_c = []
+#             for row in X_matrix:
+#                 if row[2] == c:
+#                     points_in_c.append(row[:2])
+#             for p_1 in points_in_c1:
+#                 for p_2 in points_in_c:
+#                     dist = euclidean.norm(p_1[1] - p_2)
+#                     dist_to_points.append(dist)
+#             single_link = min(dist_to_points)
+#             dist_to_clusters[c] = single_link
+#     # find the closest cluster
+#     closest_cluster = min(dist_to_clusters, key=dist_to_clusters.get)
+#     distance_to_closest = dist_to_clusters[closest_cluster]
+#     # step 3: update distances
+#     for point in points_in_c1:
+#         index = point[0]
+#         clusters_matrix[index][distance_col] = distance_to_closest
+#         clusters_matrix[index][cluster_col] = closest_cluster
+#     pass
+
+
 def single_link_merge(c1_index, c2_index, X_matrix, clusters_matrix, distance_col, cluster_col, distances_matrix):
+    # todo write your code here
     # step 1: assign new cluster membership to the second cluster
-    points_in_c1 = []
+    points_in_c2 = []  # i decided to merge the first cluster into the second
     for i in range(len(X_matrix)):
         row = X_matrix[i]
-        if row[2] == c1_index:
-            to_append = row[:2]
-            points_in_c1.append((i, to_append))
         if row[2] == c2_index:
-            to_append = row[:2]
-            points_in_c1.append((i, to_append))
-            row[2] = c1_index
+            points_in_c2.append(i)  # appending index of the data point to update its information in future
+        if row[2] == c1_index:
+            clusters_matrix[i, :201] = np.inf
+            clusters_matrix[:, i] = np.inf
+            points_in_c2.append(i)
+            row[2] = c2_index
     # step 2 recalculate distances to
     clusters = np.unique(X_matrix[:, 2])
     dist_to_clusters = {}
     # calculate distances from each point of a target cluster to all other points in all other clusters
     for c in clusters:
-        if c != c1_index:
+        if c != c2_index:
             dist_to_points = []
             points_in_c = []
-            for row in X_matrix:
+            for i in range(len(X_matrix)):
+                row = X_matrix[i]
                 if row[2] == c:
-                    points_in_c.append(row[:2])
-            for p_1 in points_in_c1:
+                    points_in_c.append(i)
+            for p_1 in points_in_c2:
                 for p_2 in points_in_c:
-                    dist = euclidean.norm(p_1[1] - p_2)
+                    # dist = euclidean.norm(p_1[1] - p_2)
+                    if clusters_matrix[p_2][cluster_col] == c1_index:
+                        clusters_matrix[p_2][cluster_col] = c2_index
+                    dist = distances_matrix[p_1][p_2]
                     dist_to_points.append(dist)
             single_link = min(dist_to_points)
+            clusters_matrix[c2_index][c] = single_link
+            clusters_matrix[c][c2_index] = single_link
             dist_to_clusters[c] = single_link
+    clusters_matrix[c2_index][c2_index] = np.inf
     # find the closest cluster
     closest_cluster = min(dist_to_clusters, key=dist_to_clusters.get)
     distance_to_closest = dist_to_clusters[closest_cluster]
     # step 3: update distances
-    for point in points_in_c1:
-        index = point[0]
-        clusters_matrix[index][200] = distance_to_closest
-        clusters_matrix[index][201] = closest_cluster
+    clusters_matrix[c2_index][distance_col] = distance_to_closest
+    clusters_matrix[c2_index][cluster_col] = closest_cluster
     pass
 
 
@@ -76,41 +122,46 @@ def single_link_merge(c1_index, c2_index, X_matrix, clusters_matrix, distance_co
 def complete_link_merge(c1_index, c2_index, X_matrix, clusters_matrix, distance_col, cluster_col, distances_matrix):
     # todo write your code here
     # step 1: assign new cluster membership to the second cluster
-    points_in_c1 = []
+    points_in_c2 = []  # i decided to merge the first cluster into the second
     for i in range(len(X_matrix)):
         row = X_matrix[i]
         if row[2] == c2_index:
-            to_append = row[:2]
-            points_in_c1.append((i, to_append))
-            row[2] = c1_index
+            points_in_c2.append(i)  # appending index of the data point to update its information in future
         if row[2] == c1_index:
-            to_append = row[:2]
-            points_in_c1.append((i, to_append))
+            clusters_matrix[i, :201] = np.inf
+            clusters_matrix[:, i] = np.inf
+            points_in_c2.append(i)
+            row[2] = c2_index
     # step 2 recalculate distances to
     clusters = np.unique(X_matrix[:, 2])
     dist_to_clusters = {}
     # calculate distances from each point of a target cluster to all other points in all other clusters
     for c in clusters:
-        if c != c1_index:
+        if c != c2_index:
             dist_to_points = []
             points_in_c = []
-            for row in X_matrix:
+            for i in range(len(X_matrix)):
+                row = X_matrix[i]
                 if row[2] == c:
-                    points_in_c.append(row[:2])
-            for p_1 in points_in_c1:
+                    points_in_c.append(i)
+            for p_1 in points_in_c2:
                 for p_2 in points_in_c:
-                    dist = euclidean.norm(p_1[1] - p_2)
+                    # dist = euclidean.norm(p_1[1] - p_2)
+                    if clusters_matrix[p_2][cluster_col] == c1_index:
+                        clusters_matrix[p_2][cluster_col] = c2_index
+                    dist = distances_matrix[p_1][p_2]
                     dist_to_points.append(dist)
             single_link = max(dist_to_points)
+            clusters_matrix[c2_index][c] = single_link
+            clusters_matrix[c][c2_index] = single_link
             dist_to_clusters[c] = single_link
+    clusters_matrix[c2_index][c2_index] = np.inf
     # find the closest cluster
     closest_cluster = min(dist_to_clusters, key=dist_to_clusters.get)
     distance_to_closest = dist_to_clusters[closest_cluster]
     # step 3: update distances
-    for point in points_in_c1:
-        index = point[0]
-        clusters_matrix[index][200] = distance_to_closest
-        clusters_matrix[index][201] = closest_cluster
+    clusters_matrix[c2_index][distance_col] = distance_to_closest
+    clusters_matrix[c2_index][cluster_col] = closest_cluster
     pass
 
 
@@ -124,41 +175,46 @@ def complete_link_merge(c1_index, c2_index, X_matrix, clusters_matrix, distance_
 def average_link_merge(c1_index, c2_index, X_matrix, clusters_matrix, distance_col, cluster_col, distances_matrix):
     # todo write your code here
     # step 1: assign new cluster membership to the second cluster
-    points_in_c1 = []
+    points_in_c2 = []  # i decided to merge the first cluster into the second
     for i in range(len(X_matrix)):
         row = X_matrix[i]
         if row[2] == c2_index:
-            to_append = row[:2]
-            points_in_c1.append((i, to_append))
-            row[2] = c1_index
+            points_in_c2.append(i)  # appending index of the data point to update its information in future
         if row[2] == c1_index:
-            to_append = row[:2]
-            points_in_c1.append((i, to_append))
+            clusters_matrix[i, :201] = np.inf
+            clusters_matrix[:, i] = np.inf
+            points_in_c2.append(i)
+            row[2] = c2_index
     # step 2 recalculate distances to
     clusters = np.unique(X_matrix[:, 2])
     dist_to_clusters = {}
     # calculate distances from each point of a target cluster to all other points in all other clusters
     for c in clusters:
-        if c != c1_index:
+        if c != c2_index:
             dist_to_points = []
             points_in_c = []
-            for row in X_matrix:
+            for i in range(len(X_matrix)):
+                row = X_matrix[i]
                 if row[2] == c:
-                    points_in_c.append(row[:2])
-            for p_1 in points_in_c1:
+                    points_in_c.append(i)
+            for p_1 in points_in_c2:
                 for p_2 in points_in_c:
-                    dist = euclidean.norm(p_1[1] - p_2)
+                    # dist = euclidean.norm(p_1[1] - p_2)
+                    if clusters_matrix[p_2][cluster_col] == c1_index:
+                        clusters_matrix[p_2][cluster_col] = c2_index
+                    dist = distances_matrix[p_1][p_2]
                     dist_to_points.append(dist)
-            single_link = min(dist_to_points)
+            single_link = sum(dist_to_points) / float(len(dist_to_points))
+            clusters_matrix[c2_index][c] = single_link
+            clusters_matrix[c][c2_index] = single_link
             dist_to_clusters[c] = single_link
+    clusters_matrix[c2_index][c2_index] = np.inf
     # find the closest cluster
     closest_cluster = min(dist_to_clusters, key=dist_to_clusters.get)
     distance_to_closest = dist_to_clusters[closest_cluster]
     # step 3: update distances
-    for point in points_in_c1:
-        index = point[0]
-        clusters_matrix[index][200] = distance_to_closest
-        clusters_matrix[index][201] = closest_cluster
+    clusters_matrix[c2_index][distance_col] = distance_to_closest
+    clusters_matrix[c2_index][cluster_col] = closest_cluster
     pass
 
 
@@ -195,11 +251,12 @@ def bottom_up_clustering(merge_func, X_matrix, distances_matrix, threshold=None)
         merge_distances[i] = distance
         merge_func(c1_id, c2_id, X_data, clusters, dist_col_id, clust_col_id, distances_matrix)
         # uncomment when testing
-        # print("Merging clusters #", c1_id, c2_id)
-        # if i%30 == 0:
-        #     for k, (marker, color) in zip(range(num_points), itertools.product(markers, colormap)):
-        #         plt.scatter(X_data[X_data[:, 2] == k, 0], X_data[X_data[:, 2] == k, 1], color=color, marker=marker, label=k)
-        #     plt.show()
+        print("Merging clusters #", c1_id, c2_id)
+        if i % 30 == 0:
+            for k, (marker, color) in zip(range(num_points), itertools.product(markers, colormap)):
+                plt.scatter(X_data[X_data[:, 2] == k, 0], X_data[X_data[:, 2] == k, 1], color=color, marker=marker,
+                            label=k)
+            plt.show()
 
     # todo use the plot below to find the optimal threshold to stop merging clusters
     plt.plot(np.arange(0, num_points - 1, 1), merge_distances[:num_points - 1])
@@ -214,6 +271,8 @@ def bottom_up_clustering(merge_func, X_matrix, distances_matrix, threshold=None)
     plt.xlabel('Annual Income (k$)')
     plt.ylabel('Spending Score (1-100)')
     plt.show()
+
+    return clusters
 
 
 # importing the dataset
@@ -232,6 +291,6 @@ colormap = plt.cm.Dark2.colors
 # performing bottom-up clustering with three different linkage functions
 # todo set your own thresholds for each method.
 # todo find thresholds by looking at plot titled "Merge distances over iterations" when threshold is set to None
-# bottom_up_clustering(single_link_merge, X, distances, threshold=10)
-bottom_up_clustering(complete_link_merge, X, distances, threshold=60)
-# bottom_up_clustering(average_link_merge, X, distances, threshold=30)
+# clusters = bottom_up_clustering(single_link_merge, X, distances, threshold=10)
+# clusters = bottom_up_clustering(complete_link_merge, X, distances, threshold=60)
+clusters = bottom_up_clustering(average_link_merge, X, distances, threshold=30)
